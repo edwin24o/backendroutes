@@ -26,7 +26,7 @@ pip install flask flask-sqlalchemy mysql-connector-python
 -mac
 pip3 install flask flask-sqlalchemy mysql-connector-python
 
-========
+======== installs ==================
 
 - pip install flask-marshmallow marshmallow-sqlalchemy  
 - pip install Flask-Limiter 

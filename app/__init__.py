@@ -19,6 +19,9 @@ def create_app(config_name):
     cache.init_app(app)
 
     CORS(app, resources={r"/users/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
+
+    # CORS(app, resources={r"/users/*": {"origins": "http://localhost:5173", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
+
     
 
     app.register_blueprint(users_bp, url_prefix="/users")

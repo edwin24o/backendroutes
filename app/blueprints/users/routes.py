@@ -42,16 +42,21 @@ def login():
 
 @users_bp.route("/", methods=['POST'])
 @cross_origin()
-# @limiter.limit("10 per hour")
+# # @limiter.limit("10 per hour")
 def create_user():
     try:
         # Validate and deserialize input data
         user_data = user_schema.load(request.json)
 
+        # checking for duplicate emails
+        # existing_user = User.query.filter_by(email=user_data['email']).first()
+        # if existing_user:
+        #     return jsonify({"message": "User with this email already exists."}), 400
+
         # Hash the password before saving
         password_hash = generate_password_hash(user_data['password'])  # Hash the password
 
-        # Create a new User instance with the hashed password
+         # Create a new User instance with the hashed password
         new_user = User(
             firstname=user_data['firstname'],
             lastname=user_data['lastname'],
@@ -60,57 +65,76 @@ def create_user():
             rating=user_data.get('rating', 0)
         )
 
-        # Add user to the database
+#         # Add user to the database
         db.session.add(new_user)
         db.session.commit()
 
         return user_schema.jsonify(new_user), 201
 
     except ValidationError as e:
-        # Return validation error messages
+#         # Return validation error messages
         return jsonify({"errors": e.messages}), 400
     except Exception as e:
-        # Catch other exceptions
+#         # Catch other exceptions
         return jsonify({"error": str(e)}), 500
     
-@users_bp.route("/signup", methods=['POST'])  # Create a separate route for sign-up
-@cross_origin()
-def sign_up_user():
-    try:
-        # Validate and deserialize input data for sign-up
-        user_data = user_schema.load(request.json)  # Deserialize user data
+# @users_bp.route("/signup", methods=['POST'])
+# @cross_origin()
+# def sign_up_user():
+#     try:
+#         # Validate and deserialize input data for sign-up
+#         user_data = user_schema.load(request.json)
 
-        # Hash the password before saving
-        password_hash = generate_password_hash(user_data['password'])  # Hash the password
+#         # Check if the user already exists based on email
+#         existing_user = User.query.filter_by(email=user_data['email']).first()
+#         if existing_user:
+#             return jsonify({"message": "User with this email already exists."}), 400
 
-        # Create a new User instance with the hashed password
-        new_user = User(
-            firstname=user_data['firstname'],
-            lastname=user_data['lastname'],
-            email=user_data['email'],
-            password=password_hash,  # Store the hashed password in the 'password' field
-            rating=user_data.get('rating', 0)  # Default rating to 0 if not provided
-        )
+#         # Hash the password before saving
+#         password_hash = generate_password_hash(user_data['password'])
 
-        # Add user to the database
-        db.session.add(new_user)
-        db.session.commit()
+#         # Create a new User instance with the hashed password
+#         new_user = User(
+#             firstname=user_data['firstname'],
+#             lastname=user_data['lastname'],
+#             email=user_data['email'],
+#             password=password_hash,
+#             rating=user_data.get('rating', 0)
+#         )
 
-        # Return the newly created user as a response
-        return user_schema.jsonify(new_user), 201
+#         # Add user to the database
+#         db.session.add(new_user)
+#         db.session.commit()
 
-    except ValidationError as e:
-        # Return validation error messages
-        return jsonify({"errors": e.messages}), 400
-    except Exception as e:
-        # Catch other exceptions
-        return jsonify({"error": str(e)}), 500
+#         # Generate a token for the newly created user
+#         token = encode_token(new_user.id)  # Generate JWT token
+
+#         # Return the newly created user and token
+#         response = {
+#             "message": 'User created successfully',
+#             "status": "success",
+#             "token": token  # Send token so the user can be logged in immediately
+#         }
+
+#         return jsonify(response), 201
+
+#     except ValidationError as e:
+#         return jsonify({"errors": e.messages}), 400
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
 
-@users_bp.route("/signup", methods=['OPTIONS'])
+
+# @users_bp.route("/", methods=['OPTIONS'])
+# @cross_origin()
+# def handle_options():
+#     return jsonify({"message": "OK"})
+
+
+@users_bp.route("/users", methods=['OPTIONS'])
 @cross_origin()
 def handle_options():
-    return "", 200
+    return "", 200  # Return a 200 OK status for the OPTIONS preflight request
 
 
 @users_bp.route("/", methods=["GET"])
