@@ -41,6 +41,8 @@ class User(Base):
     reviews_given: Mapped[List['Review']] = db.Relationship(foreign_keys='Review.reviewer_id', back_populates='reviewer')
     reviews_received: Mapped[List['Review']] = db.Relationship(foreign_keys='Review.reviewee_id', back_populates='reviewee')
 
+    profile: Mapped['Profile'] = db.Relationship(back_populates='user', uselist=False)
+
 
     
 class Skill(Base):
@@ -63,10 +65,12 @@ class Listing(Base):
     skill_id: Mapped[int] = mapped_column(db.ForeignKey('skills.id'))
     title: Mapped[str] = mapped_column(db.String(255), nullable=False)
     description: Mapped[str] = mapped_column(db.String(500), nullable=True)
+    location: Mapped[str] = mapped_column(db.String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
 
     user: Mapped['User'] = db.Relationship(back_populates='listings')
     transactions: Mapped[List['Transaction']] = db.Relationship(back_populates='listing')
+    skill: Mapped['Skill'] = db.Relationship()
 
 
     
@@ -115,3 +119,16 @@ class Exchange(Base):
     skill: Mapped['Skill'] = db.Relationship()
 
 
+class Profile(Base):
+    __tablename__ = 'profiles'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(db.ForeignKey('users.id'), unique=True)  # One-to-one relationship with User
+    bio: Mapped[str] = mapped_column(db.String(500), nullable=True)
+    avatar_url: Mapped[str] = mapped_column(db.String(255), nullable=True)  # Profile picture URL
+    location: Mapped[str] = mapped_column(db.String(100), nullable=True)
+    contact_number: Mapped[str] = mapped_column(db.String(15), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship with User
+    user: Mapped['User'] = db.Relationship(back_populates='profile')

@@ -1,16 +1,42 @@
 from flask import request, jsonify
 from app.blueprints.users import users_bp
+from app.blueprints.profile import profile_bp
 from marshmallow import ValidationError
-from app.models import User, db
+from app.models import User, db, Profile
 from sqlalchemy import select
 from app.blueprints.users.schemas import user_schema, users_schema, login_schema
+from app.blueprints.profile.schemas import profile_schema
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.models import User
 from app.extensions import limiter
 from app.utils.util import encode_token, token_required
 from flask_cors import cross_origin
 
-# Login schema 
+# Login schema //token
+
+# @users_bp.route("/login", methods=["POST"])
+# def login():
+#     try:
+#         creds = login_schema.load(request.json)
+#     except ValidationError as e:
+#         return jsonify(e.messages), 400
+    
+#     query = select(User).where(User.email == creds['email'])
+#     user = db.session.execute(query).scalars().first()
+
+#     if user and check_password_hash(user.password, creds['password']): 
+
+#         token = encode_token(user.id)
+
+#         response = {
+#             "message": 'successfully logged in',
+#             "status": "success",
+#             "token": token
+#         }
+
+#         return jsonify(response), 200
+
+#     return jsonify({"message": "Invalid credentials"}), 401
 
 @users_bp.route("/login", methods=["POST"])
 def login():
@@ -22,20 +48,23 @@ def login():
     query = select(User).where(User.email == creds['email'])
     user = db.session.execute(query).scalars().first()
 
+    # Check if user exists and if the password matches
     if user and check_password_hash(user.password, creds['password']): 
-
-        token = encode_token(user.id)
-
+        # User exists and password is correct
         response = {
-            "message": 'successfully logged in',
+            "message": "Successfully logged in",
             "status": "success",
-            "token": token
+            "user": {
+                "id": user.id,
+                "firstname": user.firstname,
+                "lastname": user.lastname,
+                "email": user.email
+            }
         }
-
         return jsonify(response), 200
 
+    # If the user is not found or password doesn't match
     return jsonify({"message": "Invalid credentials"}), 401
-
 
 
 #===== Routes
@@ -69,23 +98,24 @@ def create_user():
         db.session.add(new_user)
         db.session.commit()
 
-        return user_schema.jsonify(new_user), 201
+        token = encode_token(new_user.id)
 
-    except ValidationError as e:
-#         # Return validation error messages
-        return jsonify({"errors": e.messages}), 400
+        return jsonify({
+            "message": "User created successfully",
+            "status": "success",
+            "token": token  # Return token after successful sign-up
+        }), 201
     except Exception as e:
-#         # Catch other exceptions
         return jsonify({"error": str(e)}), 500
-    
-# @users_bp.route("/signup", methods=['POST'])
-# @cross_origin()
-# def sign_up_user():
-#     try:
-#         # Validate and deserialize input data for sign-up
-#         user_data = user_schema.load(request.json)
 
-#         # Check if the user already exists based on email
+
+# sign up token
+# @users_bp.route("/signup", methods=["POST"])
+# def signup():
+#     try:
+#         user_data = request.json
+
+#         # Check if the user already exists
 #         existing_user = User.query.filter_by(email=user_data['email']).first()
 #         if existing_user:
 #             return jsonify({"message": "User with this email already exists."}), 400
@@ -98,40 +128,69 @@ def create_user():
 #             firstname=user_data['firstname'],
 #             lastname=user_data['lastname'],
 #             email=user_data['email'],
-#             password=password_hash,
-#             rating=user_data.get('rating', 0)
+#             password=password_hash  # Store the hashed password in the 'password' field
 #         )
 
 #         # Add user to the database
 #         db.session.add(new_user)
 #         db.session.commit()
 
-#         # Generate a token for the newly created user
-#         token = encode_token(new_user.id)  # Generate JWT token
+#         # Generate a token for the newly created user (optional, for instant login)
+#         token = encode_token(new_user.id)  # Generate JWT token for the user
 
-#         # Return the newly created user and token
-#         response = {
-#             "message": 'User created successfully',
+#         # Return the new user data and the token
+#         return jsonify({
+#             "message": "User created successfully",
 #             "status": "success",
 #             "token": token  # Send token so the user can be logged in immediately
-#         }
+#         }), 201
 
-#         return jsonify(response), 201
+#     except Exception as e:
+#         print(f"Error in signup: {str(e)}")
+#         return jsonify({"error": str(e)}), 500
+
+# @users_bp.route("/signup", methods=["POST"])
+# def signup():
+#     try:
+#         # Deserialize and validate input data for user creation
+#         user_data = user_schema.load(request.json)
+
+#         # Check if the user already exists
+#         existing_user = User.query.filter_by(email=user_data['email']).first()
+#         if existing_user:
+#             return jsonify({"message": "User with this email already exists."}), 400
+
+#         # Hash the password before saving
+#         password_hash = generate_password_hash(user_data['password'])
+
+#         # Create a new User instance with the hashed password
+#         new_user = User(
+#             firstname=user_data['firstname'],
+#             lastname=user_data['lastname'],
+#             email=user_data['email'],
+#             password=password_hash  # Store the hashed password in the 'password' field
+#         )
+
+#         # Add user to the database
+#         db.session.add(new_user)
+#         db.session.commit()
+
+#         # Return success response
+#         return jsonify({
+#             "message": "User created successfully",
+#             "status": "success"
+#         }), 201
 
 #     except ValidationError as e:
 #         return jsonify({"errors": e.messages}), 400
 #     except Exception as e:
+#         print(f"Error in signup: {str(e)}")
 #         return jsonify({"error": str(e)}), 500
 
 
 
-# @users_bp.route("/", methods=['OPTIONS'])
-# @cross_origin()
-# def handle_options():
-#     return jsonify({"message": "OK"})
 
-
-@users_bp.route("/users", methods=['OPTIONS'])
+@users_bp.route("/", methods=['OPTIONS'])
 @cross_origin()
 def handle_options():
     return "", 200  # Return a 200 OK status for the OPTIONS preflight request
@@ -182,31 +241,141 @@ def delete_user(user_id):
     db.session.commit()
     return jsonify({'message': f"deleted user {user_id}!"})
 
+# -------- PROFILE ----------------------
+
+# profile TOKEN
+# @users_bp.route("/profile", methods=["POST"])
+# @token_required  # Ensure the user is logged in before accessing this route
+# def create_or_update_profile():
+#     try:
+
+#         user_id = request.user_id
+#         print(f"User ID from token: {user_id}")
 
 
-   #     # Get login data from request
-    #     login_data = request.json
-    #     email = login_data.get('email')
-    #     password = login_data.get('password')  # Password should be sent in plaintext
+#         # Get profile data from the request body
+#         profile_data = request.json
 
-    #     # Check if email and password are provided
-    #     if not email or not password:
-    #         return jsonify({"error": "Email and password are required."}), 400
+#         # Get the user object using the user_id from the token
+#         user = User.query.get(request.user_id)  # Access the user_id from the request object
+#         if not user:
+#             return jsonify({"error": "User not found"}), 404
 
-    #     # Query the database for the user with the given email
-    #     user = User.query.filter_by(email=email).first()
+#         # Check if a profile exists for the user, and create one if not
+#         if user.profile is None:
+#             # Create a new profile for the user
+#             new_profile = Profile(
+#                 user_id=user.id,
+#                 bio=profile_data.get('bio'),
+#                 avatar_url=profile_data.get('avatar_url'),
+#                 location=profile_data.get('location'),
+#                 contact_number=profile_data.get('contact_number')
+#             )
+#             db.session.add(new_profile)
+#         else:
+#             # Update the existing profile
+#             user.profile.bio = profile_data.get('bio', user.profile.bio)
+#             user.profile.avatar_url = profile_data.get('avatar_url', user.profile.avatar_url)
+#             user.profile.location = profile_data.get('location', user.profile.location)
+#             user.profile.contact_number = profile_data.get('contact_number', user.profile.contact_number)
 
-    #     # Check if user exists
-    #     if not user:
-    #         return jsonify({"error": "User not found."}), 404
+#         # Commit the changes to the database
+#         db.session.commit()
 
-    #     # Check if the provided password matches the hashed password
-    #     if not check_password_hash(user.password, password):  # Compare hashed password with the provided password
-    #         return jsonify({"error": "Invalid password."}), 401
+#         # Return the profile data in the response
+#         return profile_schema.jsonify(user.profile), 200
 
-    #     # Return a success message (you can also generate and return a JWT token here)
-    #     return jsonify({"message": "Login successful", "user": user_schema.dump(user)}), 200
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
-    # except Exception as e:
-    #     # Catch other exceptions and return an error
-    #     return jsonify({"error": str(e)}), 500
+@users_bp.route("/profile", methods=["POST"])
+def create_or_update_profile():
+    try:
+        # Get profile data from the request body
+        profile_data = request.json
+        user_id = profile_data.get('user_id')  # User ID should be part of the profile data
+
+        # Find the user by user_id
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Check if a profile exists for the user
+        if user.profile is None:
+            # Create a new profile if none exists
+            new_profile = Profile(
+                user_id=user.id,
+                bio=profile_data.get('bio'),
+                avatar_url=profile_data.get('avatar_url'),
+                location=profile_data.get('location'),
+                contact_number=profile_data.get('contact_number')
+            )
+            db.session.add(new_profile)
+        else:
+            # Update the existing profile
+            user.profile.bio = profile_data.get('bio', user.profile.bio)
+            user.profile.avatar_url = profile_data.get('avatar_url', user.profile.avatar_url)
+            user.profile.location = profile_data.get('location', user.profile.location)
+            user.profile.contact_number = profile_data.get('contact_number', user.profile.contact_number)
+
+        # Commit the changes to the database
+        db.session.commit()
+
+        # Return the profile data in the response using profile_schema
+        return profile_schema.jsonify(user.profile), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+@users_bp.route("/profile", methods=["DELETE"])
+@token_required  # Ensure the user is logged in before accessing this route
+def delete_profile(token_user):
+    try:
+        # Get the user object using the token_user (user_id)
+        user = User.query.get(token_user)
+        if not user or not user.profile:
+            return jsonify({"error": "Profile not found"}), 404
+
+        # Delete the profile
+        db.session.delete(user.profile)
+        db.session.commit()
+
+        return jsonify({"message": "Profile deleted successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    
+
+@users_bp.route("/profile/delete", methods=["DELETE"])
+@token_required  # Ensure the user is logged in before accessing this route
+def delete_profile_fields(token_user):
+    try:
+        # Get the user object using the token_user (user_id)
+        user = User.query.get(token_user)
+        if not user or not user.profile:
+            return jsonify({"error": "Profile not found"}), 404
+
+        # Get which fields to delete from the request
+        fields_to_delete = request.json.get('fields', [])
+
+        # Delete the specified fields
+        if 'bio' in fields_to_delete:
+            user.profile.bio = None
+        if 'avatar_url' in fields_to_delete:
+            user.profile.avatar_url = None
+        if 'location' in fields_to_delete:
+            user.profile.location = None
+        if 'contact_number' in fields_to_delete:
+            user.profile.contact_number = None
+
+        # Commit the changes to the database
+        db.session.commit()
+
+        return profile_schema.jsonify(user.profile), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
