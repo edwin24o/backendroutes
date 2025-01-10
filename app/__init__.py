@@ -6,6 +6,7 @@ from app.blueprints.transactions import transactions_bp
 from app.blueprints.listings import listings_bp
 from app.blueprints.skills import skills_bp
 from app.blueprints.search import search_bp
+from app.blueprints.profile import profile_bp
 from flask_cors import CORS
 
 
@@ -20,6 +21,7 @@ def create_app(config_name):
     cache.init_app(app)
 
     CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
+    # CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
 
     # CORS(app, resources={r"/users/*": {"origins": "http://localhost:5173", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
 
@@ -30,6 +32,7 @@ def create_app(config_name):
     app.register_blueprint(listings_bp, url_prefix="/listings")
     app.register_blueprint(skills_bp, url_prefix="/skills")
     app.register_blueprint(search_bp, url_prefix='/api')
+    app.register_blueprint(profile_bp, url_prefix="/profile")
  
 
     return app

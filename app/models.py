@@ -67,6 +67,10 @@ class Listing(Base):
     description: Mapped[str] = mapped_column(db.String(500), nullable=True)
     location: Mapped[str] = mapped_column(db.String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
+    type: Mapped[str] = mapped_column(db.Enum('job', 'skill_exchange'), nullable=False)  # New column for type
+    offered_skill: Mapped[str] = mapped_column(db.String(100), nullable=True)  # For skill exchange
+    wanted_skill: Mapped[str] = mapped_column(db.String(100), nullable=True)  # For skill exchange
+    
 
     user: Mapped['User'] = db.Relationship(back_populates='listings')
     transactions: Mapped[List['Transaction']] = db.Relationship(back_populates='listing')
@@ -102,21 +106,7 @@ class Review(Base):
 
     reviewer: Mapped['User'] = db.Relationship(foreign_keys=[reviewer_id], back_populates='reviews_given')
     reviewee: Mapped['User'] = db.Relationship(foreign_keys=[reviewee_id], back_populates='reviews_received')
-    
-class Exchange(Base):
-    __tablename__ = 'exchanges'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    listing_id: Mapped[int] = mapped_column(db.ForeignKey('listings.id'))
-    user_id: Mapped[int] = mapped_column(db.ForeignKey('users.id'))
-    skill_id: Mapped[int] = mapped_column(db.ForeignKey('skills.id'))
-    description: Mapped[str] = mapped_column(db.String(255))
-    status: Mapped[str] = mapped_column(db.String(50), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
-
-    listing: Mapped['Listing'] = db.Relationship()
-    user: Mapped['User'] = db.Relationship()
-    skill: Mapped['Skill'] = db.Relationship()
 
 
 class Profile(Base):
@@ -124,11 +114,15 @@ class Profile(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(db.ForeignKey('users.id'), unique=True)  # One-to-one relationship with User
-    bio: Mapped[str] = mapped_column(db.String(500), nullable=True)
-    avatar_url: Mapped[str] = mapped_column(db.String(255), nullable=True)  # Profile picture URL
-    location: Mapped[str] = mapped_column(db.String(100), nullable=True)
-    contact_number: Mapped[str] = mapped_column(db.String(15), nullable=True)
+    full_name: Mapped[str] = mapped_column(db.String(100), nullable=True)  # fullName
+    email: Mapped[str] = mapped_column(db.String(100), nullable=True)  # email
+    phone: Mapped[str] = mapped_column(db.String(20), nullable=True)  # phone
+    mobile: Mapped[str] = mapped_column(db.String(20), nullable=True)  # mobile
+    address: Mapped[str] = mapped_column(db.String(255), nullable=True)  # address
+    avatar_url: Mapped[str] = mapped_column(db.String(255), nullable=True)  # avatarUrl
+    job_title: Mapped[str] = mapped_column(db.String(100), nullable=True)  # jobTitle
+    location: Mapped[str] = mapped_column(db.String(100), nullable=True)  # location
+    social_links: Mapped[dict] = mapped_column(db.JSON, nullable=True)  # socialLinks as a JSON field
     created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
 
-    # Relationship with User
-    user: Mapped['User'] = db.Relationship(back_populates='profile')
+    user: Mapped['User'] = db.Relationship(back_populates='profile')  # Relationship with the User model
