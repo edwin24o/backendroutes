@@ -7,6 +7,7 @@ from app.blueprints.listings import listings_bp
 from app.blueprints.skills import skills_bp
 from app.blueprints.search import search_bp
 from app.blueprints.profile import profile_bp
+from app.blueprints.messages import messages_bp
 from flask_cors import CORS
 
 
@@ -31,8 +32,9 @@ def create_app(config_name):
     app.register_blueprint(transactions_bp, url_prefix="/transactions")
     app.register_blueprint(listings_bp, url_prefix="/listings")
     app.register_blueprint(skills_bp, url_prefix="/skills")
-    app.register_blueprint(search_bp, url_prefix='/api')
+    app.register_blueprint(search_bp, url_prefix='/search')
     app.register_blueprint(profile_bp, url_prefix="/profile")
+    app.register_blueprint(messages_bp, url_prefix="/messages")
  
 
     return app

@@ -19,8 +19,8 @@ db = SQLAlchemy(model_class = Base)
 user_skills = db.Table(
     'user_skills',
     db.metadata,
-    db.Column('user_id', db.ForeignKey('users.id')),
-    db.Column('skill_id', db.ForeignKey('skills.id'))
+    db.Column('user_id', db.ForeignKey('users.id', ondelete="CASCADE"), primary_key=True),  # Reference to users.id
+    db.Column('skill_id', db.ForeignKey('skills.id', ondelete="CASCADE"), primary_key=True)  # Reference to skills.id
 )
 
 class User(Base):
@@ -55,6 +55,7 @@ class Skill(Base):
 # many-to-many with users
     users: Mapped[List['User']] = db.Relationship(secondary=user_skills, back_populates='skills')
 
+
     
     
 class Listing(Base):
@@ -62,19 +63,17 @@ class Listing(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(db.ForeignKey('users.id'))
-    skill_id: Mapped[int] = mapped_column(db.ForeignKey('skills.id'))
     title: Mapped[str] = mapped_column(db.String(255), nullable=False)
     description: Mapped[str] = mapped_column(db.String(500), nullable=True)
     location: Mapped[str] = mapped_column(db.String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
     type: Mapped[str] = mapped_column(db.Enum('job', 'skill_exchange'), nullable=False)  # New column for type
-    offered_skill: Mapped[str] = mapped_column(db.String(100), nullable=True)  # For skill exchange
-    wanted_skill: Mapped[str] = mapped_column(db.String(100), nullable=True)  # For skill exchange
+    offered_skill: Mapped[int] = mapped_column(db.ForeignKey('skills.id'), nullable=True)
+    wanted_skill: Mapped[int] = mapped_column(db.ForeignKey('skills.id'), nullable=True)
     
 
     user: Mapped['User'] = db.Relationship(back_populates='listings')
     transactions: Mapped[List['Transaction']] = db.Relationship(back_populates='listing')
-    skill: Mapped['Skill'] = db.Relationship()
 
 
     
@@ -117,12 +116,32 @@ class Profile(Base):
     full_name: Mapped[str] = mapped_column(db.String(100), nullable=True)  # fullName
     email: Mapped[str] = mapped_column(db.String(100), nullable=True)  # email
     phone: Mapped[str] = mapped_column(db.String(20), nullable=True)  # phone
-    mobile: Mapped[str] = mapped_column(db.String(20), nullable=True)  # mobile
     address: Mapped[str] = mapped_column(db.String(255), nullable=True)  # address
-    avatar_url: Mapped[str] = mapped_column(db.String(255), nullable=True)  # avatarUrl
-    job_title: Mapped[str] = mapped_column(db.String(100), nullable=True)  # jobTitle
+    profile_picture: Mapped[str] = mapped_column(db.String(255), nullable=True)  # Store file name of the uploaded profile picture
     location: Mapped[str] = mapped_column(db.String(100), nullable=True)  # location
     social_links: Mapped[dict] = mapped_column(db.JSON, nullable=True)  # socialLinks as a JSON field
+    account_type = Column(db.String(30), nullable=False, default='regular')
     created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
+    bio: Mapped[str] = mapped_column(db.Text, nullable=True) 
 
     user: Mapped['User'] = db.Relationship(back_populates='profile')  # Relationship with the User model
+
+class Message(Base):
+    __tablename__ = 'messages'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sender_id: Mapped[int] = mapped_column(db.ForeignKey('users.id'), nullable=False)
+    recipient_id: Mapped[int] = mapped_column(db.ForeignKey('users.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    listing_id: Mapped[int] = mapped_column(db.ForeignKey('listings.id'), nullable=False)
+    content: Mapped[str] = mapped_column(db.Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
+    label = db.Column(db.String(50), nullable=True)  # Optional label like "Job Inquiry" or "Skill Exchange"
+    reply_to_id: Mapped[int] = mapped_column(db.ForeignKey('messages.id'), nullable=True)
+
+    sender: Mapped['User'] = db.relationship("User", foreign_keys=[sender_id])
+    recipient: Mapped['User'] = db.relationship("User", foreign_keys=[recipient_id])
+    listing: Mapped['Listing'] = db.relationship("Listing", foreign_keys=[listing_id])
+    
+    
+    reply_to: Mapped['Message'] = db.relationship("Message", remote_side=[id])  # Correct relationship setup

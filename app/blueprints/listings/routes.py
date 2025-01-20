@@ -18,10 +18,17 @@ def create_listing(current_user):
         # Validate the request payload
         validated_data = listing_schema.load(listing_data)
 
+        if validated_data["type"] == "job" and not validated_data.get("wanted_skill"):
+            return jsonify({"error": "Wanted Skill ID is required for job listings"}), 400
+
+        if validated_data["type"] == "exchange" and (
+            not validated_data.get("offered_skill") or not validated_data.get("wanted_skill")
+        ):
+            return jsonify({"error": "Offered and Wanted Skill IDs are required for exchanges"}), 400
+
         # Create a new Listing
         new_listing = Listing(
             user_id=current_user.id,
-            skill_id=validated_data.get("skill_id"),
             title=validated_data["title"],
             description=validated_data.get("description"),
             location=validated_data.get("location"),
@@ -47,29 +54,19 @@ def create_listing(current_user):
 @listings_bp.route("/search", methods=["GET"])
 def search_listings():
     try:
-        # Fetch query parameters from the request
-        skill_id = request.args.get("skill_id", type=int)
-        user_id = request.args.get("user_id", type=int)
+        type_filter = request.args.get("type")  # 'job' or 'exchange'
         location = request.args.get("location", type=str)
-        type_filter = request.args.get("type", type=str)  # 'job' or 'exchange'
-        wanted_skill = request.args.get("wanted_skill", type=int)
-        offered_skill = request.args.get("offered_skill", type=int)
+        wanted_skill = request.args.get("wanted_skill", type=str)
 
         # Build the query dynamically
         query = Listing.query
 
-        if skill_id:
-            query = query.filter(Listing.skill_id == skill_id)
-        if user_id:
-            query = query.filter(Listing.user_id == user_id)
-        if location:
-            query = query.filter(Listing.location.ilike(f"%{location}%"))  # Case-insensitive partial match
         if type_filter:
-            query = query.filter(Listing.type == type_filter)
-        if wanted_skill:
-            query = query.filter(Listing.wanted_skill == wanted_skill)
-        if offered_skill:
-            query = query.filter(Listing.offered_skill == offered_skill)
+            query = query.filter(Listing.type == type_filter)  # Filter by type
+        if location:
+            query = query.filter(Listing.location.ilike(f"%{location}%"))  # Case-insensitive location filter
+        if type_filter == "exchange" and wanted_skill:
+            query = query.filter(Listing.wanted_skill.ilike(f"%{wanted_skill}%"))
 
         # Execute the query and fetch results
         listings = query.all()
@@ -81,6 +78,9 @@ def search_listings():
 @listings_bp.route("/", methods=["GET"])
 def get_all_listings():
     try:
+        page = request.args.get("page", default=1, type=int)
+        per_page = request.args.get("per_page", default=10, type=int)
+
         # Query all listings
         query = db.session.execute(select(Listing).order_by(Listing.created_at.desc()))
         listings = query.scalars().all()
@@ -88,3 +88,21 @@ def get_all_listings():
         return jsonify(listings_schema.dump(listings)), 200
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+    
+@listings_bp.route("/<int:listing_id>", methods=["GET"])
+def get_listing(listing_id):
+    try:
+        print(f"Fetching listing with ID: {listing_id}")
+        listing = db.session.get(Listing, listing_id)
+        if not listing:
+            print(f"Listing not found for ID: {listing_id}")
+            return jsonify({"error": "Listing not found"}), 404
+
+        # Serialize the listing data using Marshmallow
+        serialized_data = listing_schema.dump(listing)
+        print("Listing fetched successfully:", serialized_data)
+        return jsonify(serialized_data), 200
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+

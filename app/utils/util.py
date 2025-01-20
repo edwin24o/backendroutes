@@ -11,7 +11,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'secrets of secret places')
 
 def encode_token(user_id):
     payload = {
-        'exp': datetime.now(timezone.utc) + timedelta(days = 0, hours = 2),
+        'exp': datetime.now(timezone.utc) + timedelta(days = 0, hours = 6),
         'iat': datetime.now(timezone.utc),
         'sub': str(user_id)
     }

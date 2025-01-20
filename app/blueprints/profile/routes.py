@@ -1,20 +1,38 @@
 from . import profile_bp
 from flask import request, jsonify
-from app.models import User, Profile, db
+from app.models import User, Profile, db, Skill, user_skills
 from app.utils.util import token_required
 from app.blueprints.profile.schemas import profile_schema
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from flask_cors import cross_origin
+import os
+import base64
+
+UPLOAD_FOLDER = 'uploads/profile_pictures'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@profile_bp.route("/users/<int:user_id>/skills", methods=["GET"])
+@token_required
+def get_user_skills(current_user, user_id):
+    if current_user.id != user_id and current_user.role != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    user = db.session.execute(select(User).filter_by(id=user_id)).scalars().first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    skills = [{"id": skill.id, "name": skill.name, "description": skill.description} for skill in user.skills]
+
+    return jsonify({"user_id": user.id, "skills": skills}), 200
+
 
 @profile_bp.route("/createprofile", methods=["POST"])
 @token_required
 def create_profile(current_user):
     try:
-        profile_data = request.json
-
+        profile_data = request.json or {}
         user_id = current_user.id
-        user_email = current_user.email
 
         # Check if the user already has a profile
         query = db.session.execute(
@@ -25,20 +43,56 @@ def create_profile(current_user):
         if existing_profile:
             return jsonify({"message": "Profile already exists"}), 400
 
+        # Handle optional profile picture
+        profile_picture_data = profile_data.get('profile_picture')
+        if profile_picture_data:
+            # Decode the base64 string and save it as a file
+            try:
+                file_data = base64.b64decode(profile_picture_data.split(",")[1])  # Remove "data:image/*;base64,"
+                filename = f"{user_id}_profile_picture.png"
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                with open(file_path, "wb") as f:
+                    f.write(file_data)
+                profile_picture_path = f"/{UPLOAD_FOLDER}/{filename}"
+            except Exception as e:
+                return jsonify({"error": f"Failed to process profile picture: {str(e)}"}), 400
+        else:
+            profile_picture_path = "/static/images/default-profile.jpg"  # Default picture
+
+        # Combine first and last name if separate fields are present
+        first_name = profile_data.get('firstName', "").strip()
+        last_name = profile_data.get('lastName', "").strip()
+        full_name = f"{first_name} {last_name}".strip() if first_name or last_name else None
+
+
+        skill_ids = profile_data.get('skill_ids', [])
+        skills = []
+        if skill_ids:
+            skills_query = db.session.execute(
+                select(Skill).filter(Skill.id.in_(skill_ids))
+            )
+            skills = skills_query.scalars().all()
+
+            if len(skills) != len(skill_ids):
+                return jsonify({"error": "One or more skill IDs are invalid"}), 400
+            
+            current_user.skills = skills
+
         # Create a new profile
         new_profile = Profile(
             user_id=current_user.id,
-            full_name=profile_data.get('fullName'),
+            full_name=full_name,
             email=current_user.email,
             phone=profile_data.get('phone'),
-            mobile=profile_data.get('mobile'),
             address=profile_data.get('address'),
-            avatar_url=profile_data.get('avatarUrl'),
-            job_title=profile_data.get('jobTitle'),
+            profile_picture=profile_picture_path,
             location=profile_data.get('location'),
-            social_links=profile_data.get('socialLinks')
+            social_links=profile_data.get('social_links'),
+            account_type=profile_data.get('account_type', 'regular'),
+            bio=profile_data.get('bio'),
         )
         db.session.add(new_profile)
+
         db.session.commit()
 
         return jsonify({
@@ -49,16 +103,10 @@ def create_profile(current_user):
         return jsonify({"error": str(e)}), 500
 
 
-
-
-
 @profile_bp.route("/", methods=["GET"])
 @token_required
 def get_profile(current_user):
     try:
-        # Log current user information for debugging
-        print(f"Current user: {current_user.id}, Email: {current_user.email}")
-
         # Query the user's profile
         profile = db.session.execute(
             select(Profile).filter_by(user_id=current_user.id)
@@ -66,8 +114,34 @@ def get_profile(current_user):
 
         if not profile:
             return jsonify({"error": "Profile not found"}), 404
+        
+        # Manually add full_name by combining first and last name
+        profile_data = profile_schema.dump(profile)
+        profile_data['full_name'] = f"{current_user.firstname} {current_user.lastname}"
 
-        return jsonify(profile_schema.dump(profile)), 200
+        skills = [skill.name for skill in current_user.skills]
+        job_title = skills[0] if skills else "N/A"
+
+        # Map backend field names to frontend field names
+        response_data = {
+            "fullName": profile.full_name,
+            "email": profile.email,
+            "phone": profile.phone,
+            "address": profile.address,
+            "avatarUrl": profile.profile_picture,
+            "jobTitle": job_title,
+            "location": profile.location,
+            "socialLinks": profile.social_links or {
+                "github": "",
+                "twitter": "",
+                "instagram": "",
+                "facebook": ""
+            },
+            "bio": profile.bio,  # Include bio for additional display
+            "skills": skills,
+        }
+
+        return jsonify(response_data), 200
     except Exception as e:
         print(f"Error in /profile/: {str(e)}")  # Log the error for debugging
         return jsonify({"error": "Internal Server Error"}), 500

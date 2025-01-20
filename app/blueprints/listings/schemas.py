@@ -5,7 +5,6 @@ from marshmallow import fields,Schema, validate, post_load, ValidationError
 class ListingSchema(Schema):
     id = fields.Int(dump_only=True)
     user_id = fields.Int(dump_only=True)  # Set by the backend
-    skill_id = fields.Int(required=False, allow_none=True)  # For regular job listings
     title = fields.Str(required=True, validate=validate.Length(min=1, max=255))
     description = fields.Str(required=False, validate=validate.Length(max=500))
     location = fields.Str(required=False, validate=validate.Length(max=100))
