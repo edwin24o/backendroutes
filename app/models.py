@@ -65,12 +65,14 @@ class Listing(Base):
     user_id: Mapped[int] = mapped_column(db.ForeignKey('users.id'))
     title: Mapped[str] = mapped_column(db.String(255), nullable=False)
     description: Mapped[str] = mapped_column(db.String(500), nullable=True)
-    location: Mapped[str] = mapped_column(db.String(100), nullable=True)
+    city: Mapped[str] = mapped_column(db.String(100), nullable=False)  # City field
+    state: Mapped[str] = mapped_column(db.String(100), nullable=False)  # State field
+    zip_code: Mapped[str] = mapped_column(db.String(10), nullable=False)  # ZIP Code
     created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)
     type: Mapped[str] = mapped_column(db.Enum('job', 'skill_exchange'), nullable=False)  # New column for type
     offered_skill: Mapped[int] = mapped_column(db.ForeignKey('skills.id'), nullable=True)
     wanted_skill: Mapped[int] = mapped_column(db.ForeignKey('skills.id'), nullable=True)
-    
+    image: Mapped[str] = mapped_column(db.String(255), nullable=True)  # Path to the uploaded image
 
     user: Mapped['User'] = db.Relationship(back_populates='listings')
     transactions: Mapped[List['Transaction']] = db.Relationship(back_populates='listing')
@@ -116,9 +118,12 @@ class Profile(Base):
     full_name: Mapped[str] = mapped_column(db.String(100), nullable=True)  # fullName
     email: Mapped[str] = mapped_column(db.String(100), nullable=True)  # email
     phone: Mapped[str] = mapped_column(db.String(20), nullable=True)  # phone
-    address: Mapped[str] = mapped_column(db.String(255), nullable=True)  # address
     profile_picture: Mapped[str] = mapped_column(db.String(255), nullable=True)  # Store file name of the uploaded profile picture
-    location: Mapped[str] = mapped_column(db.String(100), nullable=True)  # location
+
+    city: Mapped[str] = mapped_column(db.String(100), nullable=True)  # City
+    state: Mapped[str] = mapped_column(db.String(100), nullable=True)  # State
+    zip_code: Mapped[str] = mapped_column(db.String(20), nullable=True)  # ZIP code
+
     social_links: Mapped[dict] = mapped_column(db.JSON, nullable=True)  # socialLinks as a JSON field
     account_type = Column(db.String(30), nullable=False, default='regular')
     created_at: Mapped[datetime] = mapped_column(db.DateTime, default=datetime.utcnow)

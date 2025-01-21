@@ -4,16 +4,19 @@ from marshmallow import fields,Schema, validate, post_load, ValidationError
 
 class ListingSchema(Schema):
     id = fields.Int(dump_only=True)
-    user_id = fields.Int(dump_only=True)  # Set by the backend
-    title = fields.Str(required=True, validate=validate.Length(min=1, max=255))
-    description = fields.Str(required=False, validate=validate.Length(max=500))
-    location = fields.Str(required=False, validate=validate.Length(max=100))
+    user_id = fields.Int(dump_only=True)
+    title = fields.Str(required=True)
+    description = fields.Str(allow_none=True)
+    city = fields.Str(required=True)  # Add city
+    state = fields.Str(required=True)  # Add state
+    zip_code = fields.Str(required=True)  # Add zipCode
     type = fields.Str(
         required=True,
         validate=validate.OneOf(["job", "skill_exchange"]),
     )
-    offered_skill = fields.Str(required=False, allow_none=True)  # For skill exchanges
-    wanted_skill = fields.Str(required=False, allow_none=True)  # For skill exchanges
+    offered_skill = fields.Int(required=False, allow_none=True)  # For skill exchanges
+    wanted_skill = fields.Int(required=False, allow_none=True)  # For skill exchanges
+    image = fields.Str(required=False, allow_none=True)  # Add support for images
     created_at = fields.DateTime(dump_only=True)  # Automatically set by the backend
 
     @post_load

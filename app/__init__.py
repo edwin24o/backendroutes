@@ -12,7 +12,7 @@ from flask_cors import CORS
 
 
 def create_app(config_name):
-    app = Flask(__name__)
+    app = Flask(__name__, static_url_path='/static', static_folder='static')
     app.config.from_object(f"config.{config_name}")
 
 
@@ -22,11 +22,7 @@ def create_app(config_name):
     cache.init_app(app)
 
     CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
-    # CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
-
-    # CORS(app, resources={r"/users/*": {"origins": "http://localhost:5173", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
-
-    
+ 
 
     app.register_blueprint(users_bp, url_prefix="/users")
     app.register_blueprint(transactions_bp, url_prefix="/transactions")

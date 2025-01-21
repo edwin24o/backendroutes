@@ -6,10 +6,11 @@ from app.blueprints.profile.schemas import profile_schema
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from flask_cors import cross_origin
+import requests
 import os
 import base64
 
-UPLOAD_FOLDER = 'uploads/profile_pictures'
+UPLOAD_FOLDER = os.path.join("static", "profile-images")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @profile_bp.route("/users/<int:user_id>/skills", methods=["GET"])
@@ -34,6 +35,27 @@ def create_profile(current_user):
         profile_data = request.json or {}
         user_id = current_user.id
 
+        # Check if the user already has a profile MOVED TO THE BOTTOM
+        # query = db.session.execute(
+        #     select(Profile).filter_by(user_id=user_id)
+        # )
+        # existing_profile = query.scalars().first()
+
+        # if existing_profile:
+        #     return jsonify({"message": "Profile already exists"}), 400
+        
+        zip_code = profile_data.get('zip_code')
+        if not zip_code:
+            return jsonify({"error": "ZIP code is required"}), 400
+        
+        response = requests.get(f"http://api.zippopotam.us/us/{zip_code}")
+        if response.status_code != 200:
+            return jsonify({"error": "Invalid ZIP code"}), 400
+
+        location_data = response.json()
+        city = location_data["places"][0]["place name"]
+        state = location_data["places"][0]["state"]
+
         # Check if the user already has a profile
         query = db.session.execute(
             select(Profile).filter_by(user_id=user_id)
@@ -54,10 +76,11 @@ def create_profile(current_user):
                 with open(file_path, "wb") as f:
                     f.write(file_data)
                 profile_picture_path = f"/{UPLOAD_FOLDER}/{filename}"
+
             except Exception as e:
                 return jsonify({"error": f"Failed to process profile picture: {str(e)}"}), 400
         else:
-            profile_picture_path = "/static/images/default-profile.jpg"  # Default picture
+            profile_picture_path = "static/profile-images/default-profile.png"  # Default picture
 
         # Combine first and last name if separate fields are present
         first_name = profile_data.get('firstName', "").strip()
@@ -84,9 +107,10 @@ def create_profile(current_user):
             full_name=full_name,
             email=current_user.email,
             phone=profile_data.get('phone'),
-            address=profile_data.get('address'),
+            city=city,  # Add city
+            state=state,  # Add state
+            zip_code=zip_code,  # Add zip_code
             profile_picture=profile_picture_path,
-            location=profile_data.get('location'),
             social_links=profile_data.get('social_links'),
             account_type=profile_data.get('account_type', 'regular'),
             bio=profile_data.get('bio'),
@@ -114,7 +138,7 @@ def get_profile(current_user):
 
         if not profile:
             return jsonify({"error": "Profile not found"}), 404
-        
+
         # Manually add full_name by combining first and last name
         profile_data = profile_schema.dump(profile)
         profile_data['full_name'] = f"{current_user.firstname} {current_user.lastname}"
@@ -124,13 +148,14 @@ def get_profile(current_user):
 
         # Map backend field names to frontend field names
         response_data = {
-            "fullName": profile.full_name,
+            "fullName": profile_data["full_name"],
             "email": profile.email,
             "phone": profile.phone,
-            "address": profile.address,
             "avatarUrl": profile.profile_picture,
             "jobTitle": job_title,
-            "location": profile.location,
+            "city": profile.city,         # Updated field
+            "state": profile.state,       # Updated field
+            "zipCode": profile.zip_code,  # Updated field
             "socialLinks": profile.social_links or {
                 "github": "",
                 "twitter": "",
@@ -145,6 +170,7 @@ def get_profile(current_user):
     except Exception as e:
         print(f"Error in /profile/: {str(e)}")  # Log the error for debugging
         return jsonify({"error": "Internal Server Error"}), 500
+
 
 
 
