@@ -13,7 +13,7 @@ import os
 import base64
 
 # Image upload folder
-UPLOAD_FOLDER = 'uploads/listing_images'
+UPLOAD_FOLDER = os.path.abspath('uploads/listing_images')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Route to create a new listing
@@ -48,11 +48,11 @@ def create_listing(current_user):
             try:
                 # Decode the base64 image and save it as a file
                 file_data = base64.b64decode(image_data.split(",")[1])  # Remove "data:image/*;base64,"
-                filename = f"{current_user.id}_listing_{datetime.utcnow().timestamp()}.png"
+                filename = f"{current_user.id}_listing_{new_listing.id}.png"
                 file_path = os.path.join(UPLOAD_FOLDER, filename)
                 with open(file_path, "wb") as f:
                     f.write(file_data)
-                image_path = f"/{UPLOAD_FOLDER}/{filename}"  # Relative path for retrieval
+                image_path = f"/listing_images/{filename}"  # Relative path for retrieval
             except Exception as e:
                 return jsonify({"error": f"Failed to process image: {str(e)}"}), 400
         else:
@@ -75,6 +75,14 @@ def create_listing(current_user):
         db.session.add(new_listing)
         db.session.commit()
 
+        if image_data:
+            filename = f"{current_user.id}_listing_{new_listing.id}.png"
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            with open(file_path, "wb") as f:
+                f.write(file_data)
+                new_listing.image = f"/listing_images/{filename}"
+                db.session.commit()
+
         return jsonify({
             "message": "Listing created successfully",
             "listing": listing_schema.dump(new_listing)
@@ -93,48 +101,63 @@ def serve_image(filename):
 @listings_bp.route("/search", methods=["GET"])
 def search_listings():
     try:
-        # Search filters
+        # Extract filters
         type_filter = request.args.get("type")  # 'job' or 'exchange'
-        wanted_skill = request.args.get("wanted_skill", type=str)
-        offered_skill = request.args.get("offered_skill", type=str)
-        zip_code = request.args.get("zip_code", type=str)
-        proximity = request.args.get("proximity", type=int, default=10)  # Default proximity is 10 miles
+        city = request.args.get("city")  # City for location
+        state = request.args.get("state")  # State for location
+        zip_code = request.args.get("zip_code")  # ZIP code for proximity
+        wanted_skill = request.args.get("wanted_skill")  # Skill wanted
+        offered_skill = request.args.get("offered_skill")  # Skill offered
+        proximity = request.args.get("proximity", type=int)  # Distance in miles
 
-        geolocator = Nominatim(user_agent="listings_search")
-        user_location = None
-        if zip_code:
-            location = geolocator.geocode({"postalcode": zip_code, "country": "United States"})
-            if location:
-                user_location = (location.latitude, location.longitude)
-
-        # Build the query dynamically
+        # Start building the query
         query = Listing.query
 
         if type_filter:
-            query = query.filter(Listing.type == type_filter)  # Filter by type
+            query = query.filter(Listing.type == type_filter)
+        if city:
+            query = query.filter(Listing.city.ilike(f"%{city}%"))  # Case-insensitive match
+        if state:
+            query = query.filter(Listing.state.ilike(f"%{state}%"))
         if wanted_skill:
             query = query.filter(Listing.wanted_skill.ilike(f"%{wanted_skill}%"))
         if offered_skill:
             query = query.filter(Listing.offered_skill.ilike(f"%{offered_skill}%"))
 
+        # Fetch all listings that match the filters so far
         listings = query.all()
 
-        # Filter by proximity if a zip_code is provided
-        if user_location:
+        # Apply proximity filter if zip_code and proximity are provided
+        if zip_code and proximity:
+            geolocator = Nominatim(user_agent="listings_search")
+            location = geolocator.geocode({"postalcode": zip_code, "country": "United States"})
+
+            if not location:
+                return jsonify({"error": "Invalid ZIP code for proximity filtering"}), 400
+
+            user_location = (location.latitude, location.longitude)
             listings_within_proximity = []
+
             for listing in listings:
                 if listing.zip_code:
-                    location = geolocator.geocode({"postalcode": listing.zip_code, "country": "United States"})
-                    if location:
-                        listing_location = (location.latitude, location.longitude)
-                        distance = geodesic(user_location, listing_location).miles
+                    listing_location = geolocator.geocode(
+                        {"postalcode": listing.zip_code, "country": "United States"}
+                    )
+                    if listing_location:
+                        listing_coords = (listing_location.latitude, listing_location.longitude)
+                        distance = geodesic(user_location, listing_coords).miles
                         if distance <= proximity:
                             listings_within_proximity.append(listing)
+
             listings = listings_within_proximity
 
+        # Serialize and return the filtered listings
         return listings_schema.jsonify(listings), 200
+
     except Exception as e:
+        print(f"Error during search: {e}")
         return jsonify({"error": "An error occurred while searching listings"}), 500
+
 
 @listings_bp.route("/", methods=["GET"])
 def get_all_listings():
