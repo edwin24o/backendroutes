@@ -101,62 +101,72 @@ def serve_image(filename):
 @listings_bp.route("/search", methods=["GET"])
 def search_listings():
     try:
-        # Extract filters
-        type_filter = request.args.get("type")  # 'job' or 'exchange'
-        city = request.args.get("city")  # City for location
-        state = request.args.get("state")  # State for location
-        zip_code = request.args.get("zip_code")  # ZIP code for proximity
-        wanted_skill = request.args.get("wanted_skill")  # Skill wanted
-        offered_skill = request.args.get("offered_skill")  # Skill offered
-        proximity = request.args.get("proximity", type=int)  # Distance in miles
+        # Retrieve search filters
+        type_filter = request.args.get("type")  # 'job' or 'skill_exchange'
+        city = request.args.get("city")
+        state = request.args.get("state")
+        zip_code = request.args.get("zip_code")
+        wanted_skill = request.args.get("wanted_skill")
+        offered_skill = request.args.get("offered_skill")
+        proximity = request.args.get("proximity", type=int)
+
+        print(f"Received filters: type={type_filter}, city={city}, state={state}, zip_code={zip_code}, wanted_skill={wanted_skill}, offered_skill={offered_skill}, proximity={proximity}")
 
         # Start building the query
-        query = Listing.query
+        query = db.session.query(Listing)
 
+        # Apply filters
         if type_filter:
             query = query.filter(Listing.type == type_filter)
         if city:
-            query = query.filter(Listing.city.ilike(f"%{city}%"))  # Case-insensitive match
+            query = query.filter(Listing.city.ilike(f"%{city}%"))
         if state:
             query = query.filter(Listing.state.ilike(f"%{state}%"))
+        if zip_code:
+            query = query.filter(Listing.zip_code == zip_code)
         if wanted_skill:
-            query = query.filter(Listing.wanted_skill.ilike(f"%{wanted_skill}%"))
+            query = query.filter(Listing.wanted_skill == int(wanted_skill))
         if offered_skill:
-            query = query.filter(Listing.offered_skill.ilike(f"%{offered_skill}%"))
+            query = query.filter(Listing.offered_skill == int(offered_skill))
 
-        # Fetch all listings that match the filters so far
+        print(f"Query before execution: {str(query)}")
+
+        # Execute the query
         listings = query.all()
+        print(f"Found {len(listings)} listings matching filters.")
 
         # Apply proximity filter if zip_code and proximity are provided
-        if zip_code and proximity:
-            geolocator = Nominatim(user_agent="listings_search")
-            location = geolocator.geocode({"postalcode": zip_code, "country": "United States"})
+        if zip_code:
+            try:
+                geolocator = Nominatim(user_agent="listings_search")
+                location = geolocator.geocode({"postalcode": zip_code, "country": "United States"})
+                if location:
+                    user_location = (location.latitude, location.longitude)
+                    listings_within_proximity = []
 
-            if not location:
-                return jsonify({"error": "Invalid ZIP code for proximity filtering"}), 400
+                    for listing in listings:
+                        if listing.zip_code:
+                            listing_location = geolocator.geocode(
+                                {"postalcode": listing.zip_code, "country": "United States"}
+                            )
+                            if listing_location:
+                                listing_coords = (listing_location.latitude, listing_location.longitude)
+                                distance = geodesic(user_location, listing_coords).miles
+                                if distance <= proximity:
+                                    listings_within_proximity.append(listing)
 
-            user_location = (location.latitude, location.longitude)
-            listings_within_proximity = []
+                    listings = listings_within_proximity
+            except Exception as e:
+                print(f"Error during proximity filtering: {str(e)}")
 
-            for listing in listings:
-                if listing.zip_code:
-                    listing_location = geolocator.geocode(
-                        {"postalcode": listing.zip_code, "country": "United States"}
-                    )
-                    if listing_location:
-                        listing_coords = (listing_location.latitude, listing_location.longitude)
-                        distance = geodesic(user_location, listing_coords).miles
-                        if distance <= proximity:
-                            listings_within_proximity.append(listing)
-
-            listings = listings_within_proximity
-
-        # Serialize and return the filtered listings
-        return listings_schema.jsonify(listings), 200
+         # Serialize the data using Marshmallow
+        serialized_listings = listings_schema.dump(listings)
+        return jsonify(serialized_listings), 200
 
     except Exception as e:
+        # Print the full error message
         print(f"Error during search: {e}")
-        return jsonify({"error": "An error occurred while searching listings"}), 500
+        return jsonify({"error": f"An error occurred while searching listings: {str(e)}"}), 500
 
 
 @listings_bp.route("/", methods=["GET"])
