@@ -47,12 +47,12 @@ def create_listing(current_user):
         if image_data:
             try:
                 # Decode the base64 image and save it as a file
-                file_data = base64.b64decode(image_data.split(",")[1])  # Remove "data:image/*;base64,"
+                file_data = base64.b64decode(image_data.split(",")[1])  
                 filename = f"{current_user.id}_listing_{new_listing.id}.png"
                 file_path = os.path.join(UPLOAD_FOLDER, filename)
                 with open(file_path, "wb") as f:
                     f.write(file_data)
-                image_path = f"/listing_images/{filename}"  # Relative path for retrieval
+                image_path = f"/listing_images/{filename}"  
             except Exception as e:
                 return jsonify({"error": f"Failed to process image: {str(e)}"}), 400
         else:
@@ -102,7 +102,7 @@ def serve_image(filename):
 def search_listings():
     try:
         # Retrieve search filters
-        type_filter = request.args.get("type")  # 'job' or 'skill_exchange'
+        type_filter = request.args.get("type")  
         city = request.args.get("city")
         state = request.args.get("state")
         zip_code = request.args.get("zip_code")
@@ -112,7 +112,6 @@ def search_listings():
 
         print(f"Received filters: type={type_filter}, city={city}, state={state}, zip_code={zip_code}, wanted_skill={wanted_skill}, offered_skill={offered_skill}, proximity={proximity}")
 
-        # Start building the query
         query = db.session.query(Listing)
 
         # Apply filters
@@ -136,13 +135,13 @@ def search_listings():
         print(f"Found {len(listings)} listings matching filters.")
 
         # Apply proximity filter if zip_code and proximity are provided
-        if zip_code:
+        if zip_code and proximity:
             try:
                 geolocator = Nominatim(user_agent="listings_search")
                 location = geolocator.geocode({"postalcode": zip_code, "country": "United States"})
                 if location:
                     user_location = (location.latitude, location.longitude)
-                    listings_within_proximity = []
+                    filtered_listings = []
 
                     for listing in listings:
                         if listing.zip_code:
@@ -153,11 +152,11 @@ def search_listings():
                                 listing_coords = (listing_location.latitude, listing_location.longitude)
                                 distance = geodesic(user_location, listing_coords).miles
                                 if distance <= proximity:
-                                    listings_within_proximity.append(listing)
+                                    filtered_listings.append(listing)
 
-                    listings = listings_within_proximity
+                    listings = filtered_listings
             except Exception as e:
-                print(f"Error during proximity filtering: {str(e)}")
+                print(f"Proximity filter error: {e}")
 
          # Serialize the data using Marshmallow
         serialized_listings = listings_schema.dump(listings)

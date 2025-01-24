@@ -60,8 +60,8 @@ def send_message(current_user):
             sender_id=current_user.id,
             recipient_id=recipient_id,
             content=content,
-            listing_id=listing_id,  # Can be None for general messages
-            reply_to_id=reply_to_id,  # Reference the original message for replies
+            listing_id=listing_id,  
+            reply_to_id=reply_to_id,  
             created_at=datetime.utcnow(),
         )
 
@@ -108,7 +108,7 @@ def get_messages(current_user):
 @token_required
 def get_sent_messages(current_user):
     try:
-        # Fetch messages where the logged-in user is the sender
+        
         messages = (
             db.session.query(Message, Listing)
             .outerjoin(Listing, Message.listing_id == Listing.id)
@@ -146,7 +146,7 @@ def reply_message(current_user):
         listing_id = data.get("listing_id")
         reply_to_id = data.get("reply_to_id")  # Reply to a specific message
 
-        # Validate required fields
+      
         if not recipient_id or not content or not listing_id:
             return jsonify({"error": "Recipient ID, content, and listing ID are required"}), 400
         
@@ -154,7 +154,7 @@ def reply_message(current_user):
         if not original_message:
             return jsonify({"error": "Original message not found"}), 404
 
-        # Derive recipient_id from the original message's sender_id
+     
         recipient_id = original_message.sender_id
 
         # Log values for debugging
@@ -166,7 +166,7 @@ def reply_message(current_user):
             recipient_id=recipient_id,
             content=content,
             listing_id=listing_id,
-            reply_to_id=reply_to_id,  # Link to the original message
+            reply_to_id=reply_to_id,  
             created_at=datetime.utcnow()
         )
 

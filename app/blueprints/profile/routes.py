@@ -153,16 +153,16 @@ def get_profile(current_user):
             "phone": profile.phone,
             "avatarUrl": profile.profile_picture,
             "jobTitle": job_title,
-            "city": profile.city,         # Updated field
-            "state": profile.state,       # Updated field
-            "zipCode": profile.zip_code,  # Updated field
+            "city": profile.city,        
+            "state": profile.state,       
+            "zipCode": profile.zip_code,  
             "socialLinks": profile.social_links or {
                 "github": "",
                 "twitter": "",
                 "instagram": "",
                 "facebook": ""
             },
-            "bio": profile.bio,  # Include bio for additional display
+            "bio": profile.bio,  
             "skills": skills,
         }
 
@@ -179,7 +179,7 @@ def get_profile(current_user):
 @token_required
 def delete_profile(current_user):
     try:
-        # Check if the user has a profile
+       
         if not current_user.profile:
             return jsonify({"error": "Profile not found"}), 404
 
@@ -191,7 +191,7 @@ def delete_profile(current_user):
     except Exception as e:
         return jsonify({"error": f"Failed to delete profile: {str(e)}"}), 500
 
-# Delete specific profile fields (like bio, avatar, etc.)
+
 @profile_bp.route("/delete", methods=["DELETE"])
 @token_required
 def delete_profile_fields(current_user):
@@ -203,7 +203,7 @@ def delete_profile_fields(current_user):
         # Get which fields to delete from the request
         fields_to_delete = request.json.get('fields', [])
 
-        # Dynamically set fields to None
+    
         allowed_fields = ["bio", "avatar_url", "location", "contact_number"]
         for field in fields_to_delete:
             if field in allowed_fields:

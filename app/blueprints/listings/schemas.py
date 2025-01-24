@@ -7,17 +7,17 @@ class ListingSchema(Schema):
     user_id = fields.Int(dump_only=True)
     title = fields.Str(required=True)
     description = fields.Str(allow_none=True)
-    city = fields.Str(required=True)  # Add city
-    state = fields.Str(required=True)  # Add state
-    zip_code = fields.Str(required=True)  # Add zipCode
+    city = fields.Str(required=True)  
+    state = fields.Str(required=True)  
+    zip_code = fields.Str(required=True)  
     type = fields.Str(
         required=True,
         validate=validate.OneOf(["job", "skill_exchange"]),
     )
     offered_skill = fields.Int(required=False, allow_none=True)  # For skill exchanges
     wanted_skill = fields.Int(required=False, allow_none=True)  # For skill exchanges
-    image = fields.Str(required=False, allow_none=True)  # Add support for images
-    created_at = fields.DateTime(dump_only=True)  # Automatically set by the backend
+    image = fields.Str(required=False, allow_none=True) 
+    created_at = fields.DateTime(dump_only=True)  
 
     @post_load
     def validate_exchange(self, data, **kwargs):
